@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>NQ / MNQ калкулатор</title>
+<style>
+:root{
+  --bg:#12161c; --panel:#1b212a; --line:#2c3541; --text:#e8edf3; --mute:#8b97a6;
+  --win:#3fb98a; --loss:#e5604d; --accent:#e8edf3; --on-accent:#12161c;
+  box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme: light){
+  :root:not([data-theme="dark"]){--bg:#eef1f5;--panel:#fff;--line:#d5dce5;--text:#18202a;--mute:#5d6b7c;--win:#1a8a5f;--loss:#c4402e;--accent:#18202a;--on-accent:#fff}
+}
+:root[data-theme="light"]{--bg:#eef1f5;--panel:#fff;--line:#d5dce5;--text:#18202a;--mute:#5d6b7c;--win:#1a8a5f;--loss:#c4402e;--accent:#18202a;--on-accent:#fff}
+:root[data-theme="dark"]{--bg:#12161c;--panel:#1b212a;--line:#2c3541;--text:#e8edf3;--mute:#8b97a6;--win:#3fb98a;--loss:#e5604d;--accent:#e8edf3;--on-accent:#12161c}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 "Inter",system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:460px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:4px 0 16px;font-weight:650}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:3px;gap:3px;margin-bottom:12px}
+.seg button{flex:1;border:0;background:none;color:var(--mute);font:inherit;font-weight:600;padding:9px 6px;border-radius:8px}
+.seg button.on{background:var(--accent);color:var(--on-accent)}
+label{display:block;font-size:13px;color:var(--mute);margin-bottom:5px}
+input{width:100%;font:inherit;font-size:18px;font-weight:600;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-variant-numeric:tabular-nums}
+input:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.sec{margin:0 0 8px;font-size:15px;font-weight:650}
+.sec.sl{color:var(--loss)} .sec.tp{color:var(--win)}
+.hint{font-size:12px;color:var(--mute);margin-top:6px}
+.res{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cell{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px}
+.cell .k{font-size:13px;color:var(--mute)}
+.cell .v{font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;margin-top:2px}
+.cell .s{font-size:12px;color:var(--mute);margin-top:2px}
+.loss .v{color:var(--loss)} .win .v{color:var(--win)}
+.wide{grid-column:1/-1}
+.warn{color:var(--loss);font-size:13px;margin-top:8px;min-height:1em}
+</style>
+</head>
+<body>
+<main>
+<h1>NQ / MNQ калкулатор</h1>
+
+<div class="panel">
+  <div class="seg" id="inst">
+    <button data-v="NQ" class="on">NQ</button><button data-v="MNQ">MNQ</button>
+  </div>
+  <div class="seg" id="mode">
+    <button data-v="qty" class="on">Знам контрактите</button><button data-v="risk">Знам риска в $</button>
+  </div>
+  <div id="qtyBox">
+    <label for="qty">Брой контракти</label>
+    <input id="qty" type="number" inputmode="numeric" min="1" step="1" value="1">
+  </div>
+  <div id="riskBox" hidden>
+    <label for="risk">Макс. риск ($)</label>
+    <input id="risk" type="number" inputmode="decimal" min="0" step="any" value="200">
+  </div>
+  <div class="hint" id="spec"></div>
+</div>
+
+<div class="panel">
+  <p class="sec sl">Стоп лос</p>
+  <div class="row">
+    <div><label for="slP">Points</label><input id="slP" type="number" inputmode="decimal" min="0" step="any" value="10"></div>
+    <div><label for="slT">Ticks</label><input id="slT" type="number" inputmode="decimal" min="0" step="any"></div>
+  </div>
+  <p class="sec tp" style="margin-top:16px">Профит (тейк профит)</p>
+  <div class="row">
+    <div><label for="tpP">Points</label><input id="tpP" type="number" inputmode="decimal" min="0" step="any" value="20"></div>
+    <div><label for="tpT">Ticks</label><input id="tpT" type="number" inputmode="decimal" min="0" step="any"></div>
+  </div>
+  <div class="hint">Попълни points или ticks — другото се смята само. 1 point = 4 ticks.</div>
+</div>
+
+<div class="panel res" aria-live="polite">
+  <div class="cell loss"><div class="k">Загуба при стоп</div><div class="v" id="oLoss">–</div><div class="s" id="sLoss"></div></div>
+  <div class="cell win"><div class="k">Профит при цел</div><div class="v" id="oWin">–</div><div class="s" id="sWin"></div></div>
+  <div class="cell"><div class="k">R:R</div><div class="v" id="oRR">–</div></div>
+  <div class="cell"><div class="k">Контракти</div><div class="v" id="oQty">–</div><div class="s" id="sQty"></div></div>
+  <div class="warn wide" id="warn"></div>
+</div>
+</main>
+
+<script>
+const SPEC={NQ:{tv:5,pt:20},MNQ:{tv:0.5,pt:2}};
+const $=id=>document.getElementById(id);
+let inst='NQ',mode='qty';
+
+const fmt=n=>isFinite(n)?String(+n.toFixed(2)):'';
+const usd=n=>'$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+
+function link(p,t){
+  p.addEventListener('input',()=>{t.value=p.value===''?'':fmt(parseFloat(p.value)*4);calc()});
+  t.addEventListener('input',()=>{p.value=t.value===''?'':fmt(parseFloat(t.value)/4);calc()});
+}
+link($('slP'),$('slT'));link($('tpP'),$('tpT'));
+$('slT').value=fmt(parseFloat($('slP').value)*4);
+$('tpT').value=fmt(parseFloat($('tpP').value)*4);
+
+function seg(id,cb){
+  $(id).addEventListener('click',e=>{
+    const b=e.target.closest('button');if(!b)return;
+    [...$(id).children].forEach(x=>x.classList.toggle('on',x===b));
+    cb(b.dataset.v);calc();
+  });
+}
+seg('inst',v=>inst=v);
+seg('mode',v=>{mode=v;$('qtyBox').hidden=v!=='qty';$('riskBox').hidden=v!=='risk'});
+['qty','risk'].forEach(id=>$(id).addEventListener('input',calc));
+
+function calc(){
+  const s=SPEC[inst];
+  $('spec').textContent=`${inst}: 1 tick = ${usd(s.tv)} · 1 point = ${usd(s.pt)} (на контракт)`;
+  const slTicks=parseFloat($('slT').value)||0;
+  const tpTicks=parseFloat($('tpT').value)||0;
+  const lossPer=slTicks*s.tv, winPer=tpTicks*s.tv;
+  let q,warn='';
+  if(mode==='qty'){
+    q=Math.floor(parseFloat($('qty').value)||0);
+  }else{
+    const r=parseFloat($('risk').value)||0;
+    q=lossPer>0?Math.floor(r/lossPer):0;
+    if(lossPer>0&&q<1)warn='Рискът е по-малък от загубата на 1 контракт при този стоп.';
+  }
+  const loss=lossPer*q, win=winPer*q;
+  $('oLoss').textContent=q>0&&slTicks>0?'−'+usd(loss):'–';
+  $('oWin').textContent=q>0&&tpTicks>0?'+'+usd(win):'–';
+  $('sLoss').textContent=slTicks>0?`${fmt(slTicks/4)} pts · ${fmt(slTicks)} ticks`:'';
+  $('sWin').textContent=tpTicks>0?`${fmt(tpTicks/4)} pts · ${fmt(tpTicks)} ticks`:'';
+  $('oRR').textContent=slTicks>0&&tpTicks>0?'1 : '+fmt(tpTicks/slTicks):'–';
+  $('oQty').textContent=q>0?q:'–';
+  $('sQty').textContent=mode==='risk'&&q>0?`реален риск ${usd(loss)}`:'';
+  $('warn').textContent=warn;
+}
+calc();
+</script>
+</body>
+</html>
